@@ -285,14 +285,20 @@
       <div class="field full"><label>Model No.</label><input id="f-model" placeholder="예) Cisco C9200L-24T-4G"></div>
       <div class="field"><label>카테고리</label><select id="f-cat"></select></div>
       <div class="field"><label>재고 상태</label>
-        <select id="f-status">
+        <select id="f-status" onchange="togglePriceField()">
           <option value="재고있음">재고있음</option>
           <option value="소량재고">소량재고</option>
           <option value="품절">품절</option>
           <option value="가격문의">가격문의</option>
         </select>
       </div>
-      <div class="field full"><label>공급가 (원, VAT포함)</label><input id="f-price" type="number" placeholder="예) 450000"></div>
+      <div class="field full" id="price-field">
+        <label>공급가 (원, VAT포함)</label>
+        <input id="f-price" type="number" placeholder="예) 450000">
+        <div id="price-inq-msg" style="display:none;margin-top:8px;padding:8px 12px;border-radius:6px;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25);font-family:'JetBrains Mono',monospace;font-size:11px;color:#a78bfa;letter-spacing:.04em">
+          💬 가격문의 상품 — 가격을 입력하지 않아도 됩니다
+        </div>
+      </div>
     </div>
     <div class="mfoot">
       <button class="btn cancel" onclick="closeM('m-item')">취소</button>
@@ -528,9 +534,22 @@ window.addCat=async function(){const inp=document.getElementById('cat-in'),err=d
 document.getElementById('cat-in').onkeydown=e=>{if(e.key==='Enter')window.addCat();};
 async function delCat(i){const cat=CATS[i],used=DATA.filter(d=>d.cat===cat).length;if(!confirm(used>0?`'${cat}' 카테고리를 삭제하면 포함된 제품 ${used}개도 함께 삭제됩니다. 계속할까요?`:`'${cat}' 카테고리를 삭제할까요?`))return;if(used>0){DATA=DATA.filter(d=>d.cat!==cat);}CATS.splice(i,1);if(filterCat===cat)filterCat='all';await saveData();buildCatList();renderFilters();fillCatSel();render();toast(`'${cat}' 카테고리 및 제품 ${used}개 삭제 완료`);}
 
+// 가격 필드 토글 (가격문의 선택 시 비활성화)
+window.togglePriceField = function() {
+  const stat = document.getElementById('f-status').value;
+  const inp  = document.getElementById('f-price');
+  const msg  = document.getElementById('price-inq-msg');
+  const isInq = stat === '가격문의';
+  inp.disabled = isInq;
+  inp.style.opacity = isInq ? '0.35' : '1';
+  inp.style.pointerEvents = isInq ? 'none' : '';
+  msg.style.display = isInq ? 'block' : 'none';
+  if (isInq) inp.value = '';
+};
+
 // 제품 추가/수정/삭제
-window.openAddM=function(){editId=null;document.getElementById('item-title').textContent='제품 추가';document.getElementById('f-model').value='';document.getElementById('f-price').value='';fillCatSel();document.getElementById('f-status').value='재고있음';openM('m-item');};
-function openEditM(id){const d=DATA.find(x=>x.id===id);if(!d){toast('항목을 찾을 수 없습니다.','ng');return;}editId=id;document.getElementById('item-title').textContent='제품 수정';document.getElementById('f-model').value=d.model;document.getElementById('f-price').value=d.price;fillCatSel(d.cat);document.getElementById('f-status').value=d.status;openM('m-item');}
+window.openAddM=function(){editId=null;document.getElementById('item-title').textContent='제품 추가';document.getElementById('f-model').value='';document.getElementById('f-price').value='';fillCatSel();document.getElementById('f-status').value='재고있음';window.togglePriceField();openM('m-item');};
+function openEditM(id){const d=DATA.find(x=>x.id===id);if(!d){toast('항목을 찾을 수 없습니다.','ng');return;}editId=id;document.getElementById('item-title').textContent='제품 수정';document.getElementById('f-model').value=d.model;document.getElementById('f-price').value=d.status==='가격문의'?'':d.price;fillCatSel(d.cat);document.getElementById('f-status').value=d.status;window.togglePriceField();openM('m-item');}
 window.saveItem=async function(){const model=document.getElementById('f-model').value.trim(),cat=document.getElementById('f-cat').value,stat=document.getElementById('f-status').value,price=parseInt(document.getElementById('f-price').value)||0;if(!model||(stat!=='가격문의'&&!price)){alert('모델명과 가격을 입력해주세요.');return;}if(editId!==null){const idx=DATA.findIndex(x=>x.id===editId);if(idx!==-1)DATA[idx]={id:editId,model,cat,price,status:stat};}else{DATA.push({id:_uid++,model,cat,price,status:stat});}await saveData();closeM('m-item');toast('저장 완료 ✓');};
 async function delItem(id){const idx=DATA.findIndex(x=>x.id===id);if(idx===-1){toast('항목을 찾을 수 없습니다.','ng');return;}if(!confirm(`'${DATA[idx].model}' 을(를) 삭제할까요?`))return;DATA.splice(idx,1);await saveData();toast('삭제 완료 ✓');}
 
