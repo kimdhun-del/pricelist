@@ -504,6 +504,8 @@ const REF_DATA   = doc(db, 'pricelist', 'data');
 const ORDERS_COL = collection(db, 'orders');
 const REF_SETTINGS = doc(db, 'pricelist', 'settings');
 
+const SUBMIT_BTN_HTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> 주문/문의 제출하기';
+
 function hexToRgb(hex) {
   hex = hex.replace(/^#/, '');
   let r = 0, g = 212, b = 255;
@@ -622,7 +624,6 @@ function renderPage() {
     const tr = document.createElement('tr');
     const priceHtml = inq ? `<span style="color:#a78bfa;font-size:13px;font-family:'Noto Sans KR',sans-serif;font-weight:600">가격문의</span>` : fmt(d.price);
     
-    // 버튼 표기 수정: '✓ 담김' 대신 '담기' 사용
     const btnLabel = out ? '품절' : (inCart ? '담기' : (inq ? '문의' : '+ 담기'));
     const p = palOf(d.cat);
     tr.innerHTML = `
@@ -670,14 +671,11 @@ function toggleCart(id) {
   refreshCartButtons(); renderCartPanel(); updateCartBadge();
 }
 
-// 상단 배지 업데이트 수정: 일반 장바구니와 문의 숫자를 분리
 function updateCartBadge() {
   const cartCount = CART.filter(c => c.status !== '가격문의').length;
   const inquiryCount = CART.filter(c => c.status === '가격문의').length;
-  
   document.getElementById('cart-count').textContent = cartCount;
   document.getElementById('inquiry-count').textContent = inquiryCount;
-  
   const pill = document.getElementById('cart-pill-btn');
   CART.length > 0 ? pill.classList.add('has-items') : pill.classList.remove('has-items');
 }
@@ -729,12 +727,17 @@ function refreshCartButtons() {
     const bid = Number(b.dataset.id); const d = DATA.find(x => x.id === bid); if (!d) return;
     const inCart = CART.some(c => c.id === bid); const out = d.status === '품절'; const inq = d.status === '가격문의';
     b.className = 'add-btn' + (inCart ? ' added' : '') + (out ? ' out' : '');
-    // 버튼 표기 수정: '✓ 담김' 대신 '담기' 사용
     b.querySelector('.btn-text').textContent = out ? '품절' : (inCart ? '담기' : (inq ? '문의' : '+ 담기'));
   });
 }
 
-window.openCart = function() { document.getElementById('cart-panel').classList.add('open'); document.getElementById('overlay').classList.add('open'); document.body.style.overflow = 'hidden'; };
+window.openCart = function() { 
+  document.getElementById('submit-btn').innerHTML = SUBMIT_BTN_HTML;
+  document.getElementById('submit-btn').disabled = false;
+  document.getElementById('cart-panel').classList.add('open'); 
+  document.getElementById('overlay').classList.add('open'); 
+  document.body.style.overflow = 'hidden'; 
+};
 window.closeCart = function() { document.getElementById('cart-panel').classList.remove('open'); document.getElementById('overlay').classList.remove('open'); document.body.style.overflow = ''; };
 
 window.submitOrder = async function() {
@@ -747,11 +750,32 @@ window.submitOrder = async function() {
     await addDoc(ORDERS_COL, { orderNum, company, contact, addr, tel, date, memo, items: CART, totalQty: CART.reduce((s, c) => s + c.qty, 0), totalPrice: CART.reduce((s, c) => s + c.price * c.qty, 0), status: '접수', createdAt: serverTimestamp() });
     document.getElementById('order-view').style.display = 'none'; document.getElementById('success-screen').classList.add('show'); document.getElementById('success-order-num').textContent = orderNum;
     toast('접수 완료! ✓');
-  } catch(e) { toast('접수 실패: ' + e.message, 'ng'); btn.disabled = false; btn.innerHTML = '주문/문의 제출하기'; }
+  } catch(e) { 
+    toast('접수 실패: ' + e.message, 'ng'); 
+    btn.disabled = false; 
+    btn.innerHTML = SUBMIT_BTN_HTML; 
+  }
 };
 
-window.resetOrder = function() { CART = []; document.getElementById('success-screen').classList.remove('show'); document.getElementById('order-view').style.display = ''; ['f-company','f-contact','f-addr','f-tel','f-memo'].forEach(id => document.getElementById(id).value = ''); document.getElementById('f-date').value = ''; renderCartPanel(); refreshCartButtons(); updateCartBadge(); closeCart(); };
-window.cancelOrder = function() { if (!confirm('선택한 목록이 초기화됩니다. 계속하시겠습니까?')) return; CART = []; renderCartPanel(); refreshCartButtons(); updateCartBadge(); closeCart(); toast('취소되었습니다.', 'ng'); };
+window.resetOrder = function() { 
+  CART = []; 
+  document.getElementById('success-screen').classList.remove('show'); 
+  document.getElementById('order-view').style.display = ''; 
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = false;
+  btn.innerHTML = SUBMIT_BTN_HTML;
+  ['f-company','f-contact','f-addr','f-tel','f-memo'].forEach(id => document.getElementById(id).value = ''); 
+  document.getElementById('f-date').value = ''; 
+  renderCartPanel(); refreshCartButtons(); updateCartBadge(); closeCart(); 
+};
+window.cancelOrder = function() { 
+  if (!confirm('선택한 목록이 초기화됩니다. 계속하시겠습니까?')) return; 
+  CART = []; 
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = false;
+  btn.innerHTML = SUBMIT_BTN_HTML;
+  renderCartPanel(); refreshCartButtons(); updateCartBadge(); closeCart(); toast('취소되었습니다.', 'ng'); 
+};
 
 onSnapshot(REF_DATA, snap => {
   if (snap.exists()) { const d = snap.data(); DATA = d.items || []; CATS = d.cats || DEF_CATS; }
