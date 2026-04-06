@@ -1,3 +1,5 @@
+--- START OF FILE manage-9x7k.html ---
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -485,7 +487,7 @@ let ORDERS=[];
 let _seenOrders=new Set(); 
 let _ordersLoaded=false;
 
-const fmt=n=>n.toLocaleString('ko-KR')+' 원';
+const fmt=n=> (typeof n === 'number' ? n.toLocaleString('ko-KR') : '0') + ' 원';
 const palOf=c=>PAL[(CATS.indexOf(c)<0?0:CATS.indexOf(c))%PAL.length];
 
 async function sha256(s){
@@ -732,12 +734,16 @@ window.renderOrders=function(){
     const isNew=!_seenOrders.has(o.id);
     const card=document.createElement('div');
     card.className='ocard'+(isNew?' new-order':'');
-    const itemsHtml=o.items.map(it=>`
+    const itemsHtml=(o.items||[]).map(it=>{
+      const calcSub = it.subtotal !== undefined ? it.subtotal : (Number(it.price || 0) * Number(it.qty || 0));
+      const subDisp = (it.status === '가격문의' || (calcSub === 0 && (it.price === 0 || it.price === undefined))) ? '<span style="color:#a78bfa">가격문의</span>' : fmt(calcSub);
+      return `
       <div class="ocard-item">
-        <span class="oitem-model">${it.model}</span>
-        <span class="oitem-qty">×${it.qty}</span>
-        <span class="oitem-sub">${fmt(it.subtotal)}</span>
-      </div>`).join('');
+        <span class="oitem-model">${it.model || 'Unknown'}</span>
+        <span class="oitem-qty">×${it.qty || 0}</span>
+        <span class="oitem-sub">${subDisp}</span>
+      </div>`}).join('');
+      
     card.innerHTML=`
       <div class="ocard-head">
         <div>
@@ -758,7 +764,7 @@ window.renderOrders=function(){
       <div class="ocard-items">${itemsHtml}</div>
       <div class="ocard-total">
         <span class="ot-label">합계 ${o.totalQty}개</span>
-        <span class="ot-val">${fmt(o.totalPrice)}</span>
+        <span class="ot-val">${o.totalPrice > 0 ? fmt(o.totalPrice) : '가격문의'}</span>
       </div>
       <div class="ocard-foot">
         <div style="display:flex;align-items:center;gap:8px">
